@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="A premium web dashboard to track Google Cloud BigQuery Release Notes, filter updates, and tweet features or issues easily with custom presets.">
+    <title>BigQuery Release Monitor</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- App Styling -->
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation / Controls -->
+        <aside class="app-sidebar">
+            <div class="brand-section">
+                <div class="logo-icon">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2005/svg">
+                        <path d="M12 2L2 7L12 12L22 7L12 2Z" fill="currentColor"/>
+                        <path d="M2 17L12 22L22 17M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="brand-title">BigQuery</h1>
+                    <p class="brand-subtitle">Release Monitor</p>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <div class="control-label">Data Actions</div>
+                <button id="btn-refresh" class="action-btn accent-btn" aria-label="Refresh release notes">
+                    <span class="btn-text">Refresh Feed</span>
+                    <span id="spinner-refresh" class="spinner hidden"></span>
+                </button>
+                <div id="last-updated-text" class="last-updated-timestamp">Checking for updates...</div>
+            </div>
+
+            <div class="control-group">
+                <div class="control-label">Search & Filtering</div>
+                <div class="search-input-wrapper">
+                    <svg class="search-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    <input type="text" id="search-input" placeholder="Search release notes..." aria-label="Search release notes">
+                </div>
+            </div>
+
+            <div class="control-group">
+                <div class="control-label">Category Filters</div>
+                <div id="filter-pills-container" class="filter-pills">
+                    <button id="pill-all" class="filter-pill active" data-type="all">All Updates</button>
+                    <button id="pill-feature" class="filter-pill" data-type="Feature">Features</button>
+                    <button id="pill-issue" class="filter-pill" data-type="Issue">Issues</button>
+                    <button id="pill-announcement" class="filter-pill" data-type="Announcement">Announcements</button>
+                    <button id="pill-deprecation" class="filter-pill" data-type="Deprecation">Deprecations</button>
+                </div>
+            </div>
+
+            <div class="control-group stats-container">
+                <div class="control-label">Overview Stats</div>
+                <div class="stats-grid">
+                    <div class="stat-card" id="stat-total-card">
+                        <div class="stat-value" id="stat-total">0</div>
+                        <div class="stat-label">Total Updates</div>
+                    </div>
+                    <div class="stat-card" id="stat-feature-card">
+                        <div class="stat-value" id="stat-features">0</div>
+                        <div class="stat-label">Features</div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Release Feed Content -->
+        <main class="app-main">
+            <header class="feed-header">
+                <div>
+                    <h2 class="feed-title" id="page-feed-title">Latest Updates</h2>
+                    <p class="feed-subtitle">Showing chronological releases from the official Google Cloud BigQuery Atom feed.</p>
+                </div>
+            </header>
+
+            <div id="feed-loader" class="feed-loader-overlay hidden">
+                <div class="large-spinner"></div>
+                <p>Fetching releases...</p>
+            </div>
+
+            <div id="feed-content" class="timeline-container">
+                <!-- Timeline items will be dynamically rendered here -->
+            </div>
+
+            <!-- Empty state for search/filter -->
+            <div id="empty-state" class="empty-state-container hidden">
+                <div class="empty-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                </div>
+                <h3>No updates match your filters</h3>
+                <p>Try clearing your search keyword or switching category filters to see release notes.</p>
+                <button id="btn-clear-filters" class="action-btn outline-btn">Clear Search & Filters</button>
+            </div>
+        </main>
+    </div>
+
+    <!-- Twitter Composer Modal -->
+    <div id="tweet-modal" class="modal-overlay hidden" aria-modal="true" role="dialog">
+        <div class="modal-box">
+            <div class="modal-header">
+                <div class="modal-title-wrapper">
+                    <div class="x-logo-icon">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                        </svg>
+                    </div>
+                    <h3>Compose Tweet (X)</h3>
+                </div>
+                <button id="btn-close-modal" class="close-modal-btn" aria-label="Close modal">&times;</button>
+            </div>
+            
+            <div class="modal-body">
+                <p class="modal-description">Draft your message below. Click on pre-selected hashtags to toggle them in the tweet.</p>
+                
+                <div class="textarea-wrapper">
+                    <textarea id="tweet-textarea" rows="7" placeholder="What's happening?"></textarea>
+                    <div class="character-progress-container">
+                        <span id="char-counter">0 / 280</span>
+                        <div class="progress-bar-bg">
+                            <div id="char-progress-bar" class="progress-bar-fill"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="hashtag-section">
+                    <span class="hashtag-label">Suggested Tags:</span>
+                    <div class="hashtag-pills">
+                        <button class="hashtag-pill active" data-tag="#BigQuery">#BigQuery</button>
+                        <button class="hashtag-pill active" data-tag="#GoogleCloud">#GoogleCloud</button>
+                        <button class="hashtag-pill" data-tag="#DataEngineering">#DataEngineering</button>
+                        <button class="hashtag-pill" data-tag="#Analytics">#Analytics</button>
+                        <button class="hashtag-pill" data-tag="#GenerativeAI">#GenerativeAI</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button id="btn-simulate-tweet" class="action-btn outline-btn">
+                    <span class="sim-btn-text">Simulate Post</span>
+                    <span id="spinner-simulate" class="spinner hidden"></span>
+                </button>
+                <button id="btn-submit-tweet" class="action-btn accent-btn">
+                    <span>Tweet via X.com</span>
+                    <svg viewBox="0 0 24 24" fill="currentColor" class="btn-icon">
+                        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast System -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- App Script -->
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
