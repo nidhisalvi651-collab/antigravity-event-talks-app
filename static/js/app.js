@@ -14,6 +14,8 @@ const feedContent = document.getElementById('feed-content');
 const feedLoader = document.getElementById('feed-loader');
 const emptyState = document.getElementById('empty-state');
 const btnClearFilters = document.getElementById('btn-clear-filters');
+const btnExportCsv = document.getElementById('btn-export-csv');
+const themeToggle = document.getElementById('theme-toggle');
 
 // Stats Elements
 const statTotal = document.getElementById('stat-total');
@@ -32,6 +34,7 @@ const hashtagPills = document.querySelectorAll('.hashtag-pill');
 
 // Init application on load
 document.addEventListener('DOMContentLoaded', () => {
+    initTheme();
     fetchReleases();
     setupEventListeners();
 });
@@ -94,6 +97,26 @@ function setupEventListeners() {
     // Share buttons inside modal
     btnSubmitTweet.addEventListener('click', launchTwitterWebIntent);
     btnSimulateTweet.addEventListener('click', runSimulatedTweet);
+
+    // Export CSV action
+    if (btnExportCsv) {
+        btnExportCsv.addEventListener('click', exportToCSV);
+    }
+
+    // Theme toggle action
+    if (themeToggle) {
+        themeToggle.addEventListener('change', (e) => {
+            if (e.target.checked) {
+                document.body.classList.add('light-mode');
+                localStorage.setItem('theme', 'light');
+                showToast('Switched to Light Mode', 'success');
+            } else {
+                document.body.classList.remove('light-mode');
+                localStorage.setItem('theme', 'dark');
+                showToast('Switched to Dark Mode', 'success');
+            }
+        });
+    }
 }
 
 // Fetch Release Notes from API
@@ -268,6 +291,27 @@ function renderTimeline() {
                 <span>Details</span>
             `;
 
+            // Copy to Clipboard Button
+            const copyBtn = document.createElement('button');
+            copyBtn.className = 'card-btn copy-btn-card';
+            copyBtn.id = `btn-copy-${sec.id}`;
+            copyBtn.innerHTML = `
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+                <span>Copy</span>
+            `;
+            copyBtn.addEventListener('click', async () => {
+                try {
+                    await navigator.clipboard.writeText(sec.text);
+                    showToast('Copied to clipboard!', 'success');
+                } catch (err) {
+                    console.error('Failed to copy text: ', err);
+                    showToast('Failed to copy to clipboard', 'error');
+                }
+            });
+
             // Share on Twitter Button
             const shareBtn = document.createElement('button');
             shareBtn.className = 'card-btn tweet-btn-card';
@@ -283,6 +327,7 @@ function renderTimeline() {
             });
 
             cardActions.appendChild(linkBtn);
+            cardActions.appendChild(copyBtn);
             cardActions.appendChild(shareBtn);
             
             headerDiv.appendChild(badge);
@@ -525,4 +570,78 @@ function showToast(message, type = 'success') {
         toast.style.animation = 'fadeIn 0.3s reverse forwards';
         setTimeout(() => toast.remove(), 300);
     }, 3500);
+}
+
+// Initialize Theme based on localStorage
+function initTheme() {
+    const savedTheme = localStorage.getItem('theme');
+    const themeToggle = document.getElementById('theme-toggle');
+    if (savedTheme === 'light') {
+        document.body.classList.add('light-mode');
+        if (themeToggle) themeToggle.checked = true;
+    } else {
+        document.body.classList.remove('light-mode');
+        if (themeToggle) themeToggle.checked = false;
+    }
+}
+
+// Export current filtered releases to CSV format
+function exportToCSV() {
+    let filteredCount = 0;
+    const csvRows = [
+        ['Date', 'Category', 'Update Content', 'Link'] // CSV Headers
+    ];
+
+    allReleases.forEach(entry => {
+        const date = entry.date;
+        const link = entry.link;
+        entry.sections.forEach(sec => {
+            // Check if matches the active category filter
+            const matchesCategory = (activeCategory === 'all' || sec.type.toLowerCase() === activeCategory.toLowerCase());
+            
+            // Check if matches the search filter
+            const matchesSearch = !searchQuery || 
+                sec.type.toLowerCase().includes(searchQuery) || 
+                sec.text.toLowerCase().includes(searchQuery) ||
+                date.toLowerCase().includes(searchQuery);
+
+            if (matchesCategory && matchesSearch) {
+                // Escape quotes and double quote encapsulate the content
+                const cleanText = sec.text ? sec.text.replace(/"/g, '""').trim() : '';
+                const cleanDate = date ? date.replace(/"/g, '""').trim() : '';
+                const cleanType = sec.type ? sec.type.replace(/"/g, '""').trim() : '';
+                const cleanLink = link ? link.replace(/"/g, '""').trim() : '';
+                
+                csvRows.push([cleanDate, cleanType, cleanText, cleanLink]);
+                filteredCount++;
+            }
+        });
+    });
+
+    if (filteredCount === 0) {
+        showToast('No release notes match the current filters to export.', 'error');
+        return;
+    }
+
+    // Convert array to CSV format with RFC 4180 escaping
+    const csvContent = csvRows.map(row => 
+        row.map(val => `"${val}"`).join(',')
+    ).join('\n');
+
+    // Trigger File Download
+    try {
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute('download', `bigquery_release_notes_${new Date().toISOString().slice(0, 10)}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showToast(`Exported ${filteredCount} release notes to CSV!`, 'success');
+    } catch (err) {
+        console.error('Failed to export CSV:', err);
+        showToast('Failed to export CSV', 'error');
+    }
 }
